@@ -42,7 +42,7 @@ public class ClienteServiceImpl implements IClienteService {
     @Transactional
     public Cliente save(Cliente cliente) {
         try {
-            return clienteDao.save(cliente);
+            return clienteDao.saveAndFlush(cliente);
         } catch (DataIntegrityViolationException ex) {
             throw new ClienteServiceException(
                 "Error al guardar el cliente: datos duplicados o restricción violada",
@@ -61,7 +61,7 @@ public class ClienteServiceImpl implements IClienteService {
         actual.setEmail(cliente.getEmail());
         actual.setFoto(cliente.getFoto());
         actual.setRegion(cliente.getRegion());
-        return clienteDao.save(actual);
+        return clienteDao.saveAndFlush(actual);
     }
 
     @Override

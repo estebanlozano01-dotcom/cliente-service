@@ -3,6 +3,9 @@ package com.denkitronik.clienteservice.delivery.rest;
 import com.denkitronik.clienteservice.domain.entities.Cliente;
 import com.denkitronik.clienteservice.domain.entities.Region;
 import com.denkitronik.clienteservice.domain.services.IClienteService;
+import jakarta.validation.ConstraintViolation;
+import jakarta.validation.ConstraintViolationException;
+import jakarta.validation.Validator;
 import jakarta.validation.Valid;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -11,6 +14,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import java.util.Set;
 
 @RestController
 @RequestMapping("/api/${api.version}/cliente-service")
@@ -18,9 +22,11 @@ import java.util.List;
 public class ClienteRestController {
 
     private final IClienteService clienteService;
+    private final Validator validator;
 
-    public ClienteRestController(IClienteService clienteService) {
+    public ClienteRestController(IClienteService clienteService, Validator validator) {
         this.clienteService = clienteService;
+        this.validator = validator;
     }
 
     @GetMapping("/clientes")
@@ -45,8 +51,13 @@ public class ClienteRestController {
     }
 
     @PutMapping("/clientes/{id}")
-    public ResponseEntity<Cliente> actualizarCliente(@Valid @RequestBody Cliente cliente,
+    public ResponseEntity<Cliente> actualizarCliente(@RequestBody Cliente cliente,
                                                     @PathVariable Long id) {
+        clienteService.findById(id);
+        Set<ConstraintViolation<Cliente>> violations = validator.validate(cliente);
+        if (!violations.isEmpty()) {
+            throw new ConstraintViolationException(violations);
+        }
         return ResponseEntity.ok(clienteService.update(id, cliente));
     }
 

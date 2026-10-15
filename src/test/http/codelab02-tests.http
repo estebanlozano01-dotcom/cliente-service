@@ -69,7 +69,7 @@ Accept: application/json
 
 ###
 
-### 10. PUT válido — actualizar cliente -> 201 Created
+### 10. PUT válido — actualizar cliente -> 200 OK
 PUT http://localhost:8080/api/v1/cliente-service/clientes/1
 Content-Type: application/json
 

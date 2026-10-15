@@ -12,7 +12,7 @@ Accept: application/json
 
 ###
 
-### 3. PUT cliente existente -> 201 Created
+### 3. PUT cliente existente -> 200 OK
 PUT http://localhost:8080/api/v1/cliente-service/clientes/1
 Content-Type: application/json
 
