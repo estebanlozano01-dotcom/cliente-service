@@ -5,7 +5,6 @@ REST API de clientes creada con Spring Boot 3, Java 21, Maven y PostgreSQL.
 ## Configuración
 
 1. Copia `.env.example` a `.env`.
-2. En `.env`, define `DB_PASSWORD` con la contraseña que usarás para la base de datos. No compartas ni subas ese archivo al repositorio.
 
 La aplicación y Docker Compose leen la misma configuración. `.env` está excluido de Git.
 
