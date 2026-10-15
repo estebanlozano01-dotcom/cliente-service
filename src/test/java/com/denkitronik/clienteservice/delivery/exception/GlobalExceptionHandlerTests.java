@@ -8,10 +8,14 @@ import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.converter.HttpMessageNotReadableException;
+import org.springframework.mock.http.MockHttpInputMessage;
 import org.springframework.validation.BeanPropertyBindingResult;
 import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.servlet.resource.NoResourceFoundException;
+
+import java.nio.charset.StandardCharsets;
+import java.util.Objects;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -24,7 +28,7 @@ class GlobalExceptionHandlerTests {
         var response = handler.manejarNotFound(new ClienteNotFoundException(999L));
 
         assertEquals(HttpStatus.NOT_FOUND, response.getStatusCode());
-        assertTrue(response.getBody().getMensaje().contains("999"));
+        assertTrue(body(response).getMensaje().contains("999"));
     }
 
     @Test
@@ -33,7 +37,7 @@ class GlobalExceptionHandlerTests {
 
         assertEquals(HttpStatus.INTERNAL_SERVER_ERROR, response.getStatusCode());
         assertEquals("Error interno del servidor. Por favor intenta más tarde.",
-                response.getBody().getMensaje());
+                body(response).getMensaje());
     }
 
     @Test
@@ -44,7 +48,7 @@ class GlobalExceptionHandlerTests {
         var response = handler.manejarServiceException(exception);
 
         assertEquals(HttpStatus.CONFLICT, response.getStatusCode());
-        assertEquals("Conflict", response.getBody().getError());
+        assertEquals("Conflict", body(response).getError());
     }
 
     @Test
@@ -53,7 +57,7 @@ class GlobalExceptionHandlerTests {
                 new DataIntegrityViolationException("duplicate"));
 
         assertEquals(HttpStatus.CONFLICT, response.getStatusCode());
-        assertNotNull(response.getBody().getTimestamp());
+        assertNotNull(body(response).getTimestamp());
     }
 
     @Test
@@ -65,16 +69,17 @@ class GlobalExceptionHandlerTests {
         var response = handler.manejarValidacion(exception);
 
         assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
-        assertTrue(response.getBody().getMensaje().contains("nombre"));
+        assertTrue(body(response).getMensaje().contains("nombre"));
     }
 
     @Test
     void handlesMalformedJson() {
         var response = handler.manejarJsonMalformado(
-                new HttpMessageNotReadableException("invalid JSON"));
+                new HttpMessageNotReadableException("invalid JSON",
+                        new MockHttpInputMessage("{}".getBytes(StandardCharsets.UTF_8))));
 
         assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
-        assertEquals("JSON malformado", response.getBody().getMensaje());
+        assertEquals("JSON malformado", body(response).getMensaje());
     }
 
     @Test
@@ -83,7 +88,7 @@ class GlobalExceptionHandlerTests {
                 new NoResourceFoundException(HttpMethod.GET, "/missing"));
 
         assertEquals(HttpStatus.NOT_FOUND, response.getStatusCode());
-        assertEquals("Ruta no encontrada", response.getBody().getMensaje());
+        assertEquals("Ruta no encontrada", body(response).getMensaje());
     }
 
     @Test
@@ -92,6 +97,11 @@ class GlobalExceptionHandlerTests {
 
         assertEquals(HttpStatus.INTERNAL_SERVER_ERROR, response.getStatusCode());
         assertEquals("Error inesperado. Por favor contacta al administrador.",
-                response.getBody().getMensaje());
+                body(response).getMensaje());
+    }
+
+    private ApiErrorResponse body(
+            org.springframework.http.ResponseEntity<ApiErrorResponse> response) {
+        return Objects.requireNonNull(response.getBody(), "The handler response body is required");
     }
 }

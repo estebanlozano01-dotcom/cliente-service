@@ -29,22 +29,28 @@ class ClienteServiceImplTests {
     void findByIdThrowsWhenClientDoesNotExist() {
         when(clienteDao.findById(999L)).thenReturn(Optional.empty());
 
-        assertThrows(ClienteNotFoundException.class, () -> clienteService.findById(999L));
+        ClienteNotFoundException exception = assertThrows(
+                ClienteNotFoundException.class, () -> clienteService.findById(999L));
+        assertEquals(999L, exception.getId());
     }
 
     @Test
     void updateThrowsWhenClientDoesNotExist() {
         when(clienteDao.findById(999L)).thenReturn(Optional.empty());
 
-        assertThrows(ClienteNotFoundException.class,
+        ClienteNotFoundException exception = assertThrows(
+                ClienteNotFoundException.class,
                 () -> clienteService.update(999L, new Cliente()));
+        assertEquals(999L, exception.getId());
     }
 
     @Test
     void deleteChecksExistenceAndThrowsWhenMissing() {
         when(clienteDao.existsById(999L)).thenReturn(false);
 
-        assertThrows(ClienteNotFoundException.class, () -> clienteService.delete(999L));
+        ClienteNotFoundException exception = assertThrows(
+                ClienteNotFoundException.class, () -> clienteService.delete(999L));
+        assertEquals(999L, exception.getId());
         verify(clienteDao, never()).deleteById(anyLong());
     }
 
@@ -57,6 +63,6 @@ class ClienteServiceImplTests {
         ClienteServiceException exception = assertThrows(ClienteServiceException.class,
                 () -> clienteService.save(cliente));
 
-        assertInstanceOf(DataIntegrityViolationException.class, exception.getCause());
+        assertTrue(exception.getCause() instanceof DataIntegrityViolationException);
     }
 }

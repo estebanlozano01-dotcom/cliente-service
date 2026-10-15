@@ -62,7 +62,9 @@ class ClienteApiIntegrationTests {
         ResponseEntity<String> response = get("/clientes/1");
 
         assertEquals(200, response.getStatusCode().value());
-        assertEquals(1, json(response.getBody()).path("id").asInt());
+        JsonNode cliente = json(response.getBody());
+        assertEquals(1, cliente.path("id").asInt());
+        assertFalse(cliente.path("createAt").isNull());
     }
 
     @Test
