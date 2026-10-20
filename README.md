@@ -40,5 +40,13 @@ Ejecuta la suite automatizada (sin Docker ni una base de datos externa):
 ```
 
 Las pruebas unitarias y los slices de Spring usan mocks o H2; la prueba E2E también
-usa H2 en modo PostgreSQL para que se pueda ejecutar en entornos sin Docker. JaCoCo
-genera el reporte en `target/site/jacoco/index.html`.
+usa H2 en modo PostgreSQL para que se pueda ejecutar en entornos sin Docker.
+
+El entorno de calificación agrega su propio agente JaCoCo al ejecutar `mvn test`.
+Para generar cobertura localmente, sin un agente JaCoCo externo, ejecuta:
+
+```powershell
+.\mvnw.cmd jacoco:prepare-agent test
+```
+
+El reporte se genera en `target/site/jacoco/index.html`.
