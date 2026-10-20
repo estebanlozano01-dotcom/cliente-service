@@ -3,13 +3,17 @@ package com.denkitronik.clienteservice;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.MethodOrderer;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Order;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.api.TestMethodOrder;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.web.client.TestRestTemplate;
+import org.springframework.test.context.TestPropertySource;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
@@ -18,12 +22,20 @@ import org.springframework.http.ResponseEntity;
 
 import static org.junit.jupiter.api.Assertions.*;
 
+@TestInstance(TestInstance.Lifecycle.PER_CLASS)
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 @AutoConfigureMockMvc
 @TestMethodOrder(MethodOrderer.OrderAnnotation.class)
-class ClienteApiIntegrationTests {
+@TestPropertySource(properties = {
+        "spring.datasource.url=jdbc:h2:mem:cliente-integration;MODE=PostgreSQL;DB_CLOSE_DELAY=-1",
+        "spring.datasource.driver-class-name=org.h2.Driver",
+        "spring.jpa.hibernate.ddl-auto=create-drop",
+        "spring.docker.compose.enabled=false"
+})
+class ClienteIntegrationTest {
 
     private static final String BASE_URL = "/api/v1/cliente-service";
+    private static Long createdClientId;
     private static final String VALID_CLIENTE = """
             {
               "nombre": "Nora",
@@ -39,6 +51,32 @@ class ClienteApiIntegrationTests {
 
     @Autowired
     private ObjectMapper objectMapper;
+
+    @Autowired
+    private JdbcTemplate jdbcTemplate;
+
+    @BeforeAll
+    void seedDatabase() {
+        jdbcTemplate.update("DELETE FROM clientes");
+        jdbcTemplate.update("DELETE FROM regiones");
+        for (int id = 1; id <= 8; id++) {
+            jdbcTemplate.update("INSERT INTO regiones (id, nombre) VALUES (?, ?)",
+                    id, "Región " + id);
+        }
+        for (int id = 1; id <= 12; id++) {
+            String email = switch (id) {
+                case 1 -> "linus@kernel.org";
+                case 2 -> "ada@analytical.example";
+                default -> "cliente" + id + "@example.com";
+            };
+            jdbcTemplate.update("""
+                    INSERT INTO clientes
+                    (id, nombre, apellido, email, foto, region_id, create_at)
+                    VALUES (?, ?, 'Prueba', ?, 'cliente.jpg', 1, CURRENT_DATE)
+                    """, id, "Cliente " + id, email);
+        }
+        jdbcTemplate.execute("ALTER TABLE clientes ALTER COLUMN id RESTART WITH 13");
+    }
 
     @Test
     @Order(1)
@@ -70,13 +108,13 @@ class ClienteApiIntegrationTests {
     @Test
     @Order(3)
     void missingClientHasStructured404() throws Exception {
-        ResponseEntity<String> response = get("/clientes/999");
+        ResponseEntity<String> response = get("/clientes/99999");
 
         assertEquals(404, response.getStatusCode().value());
         JsonNode error = json(response.getBody());
         assertEquals(404, error.path("status").asInt());
         assertEquals("Not Found", error.path("error").asText());
-        assertTrue(error.path("mensaje").asText().contains("999"));
+        assertTrue(error.path("mensaje").asText().contains("99999"));
         assertTrue(error.path("timestamp").isTextual());
     }
 
@@ -93,6 +131,7 @@ class ClienteApiIntegrationTests {
         assertEquals(400, error.path("status").asInt());
         assertTrue(error.path("mensaje").asText().contains("nombre"));
         assertTrue(error.path("errores").has("nombre"));
+        assertTrue(error.path("errors").isArray());
         assertTrue(error.path("errores").has("apellido"));
         assertTrue(error.path("errores").has("email"));
     }
@@ -116,6 +155,7 @@ class ClienteApiIntegrationTests {
         assertEquals(201, response.getStatusCode().value());
         JsonNode cliente = json(response.getBody());
         assertTrue(cliente.path("id").asLong() > 0);
+        createdClientId = cliente.path("id").asLong();
         assertFalse(cliente.path("createAt").isMissingNode());
         assertFalse(cliente.path("createAt").isNull());
     }
@@ -150,7 +190,7 @@ class ClienteApiIntegrationTests {
     @Test
     @Order(9)
     void updatesExistingClientAndPreservesConflictHandling() throws Exception {
-        ResponseEntity<String> invalidUpdate = put("/clientes/2",
+        ResponseEntity<String> invalidUpdate = put("/clientes/" + createdClientId,
                 """
                 {"nombre":"","apellido":"","email":"bad","region":null}
                 """);
@@ -161,11 +201,11 @@ class ClienteApiIntegrationTests {
         assertTrue(validationError.path("errores").has("email"));
         assertTrue(validationError.path("errores").has("region"));
 
-        String originalCreateAt = json(get("/clientes/2").getBody())
+        String originalCreateAt = json(get("/clientes/" + createdClientId).getBody())
                 .path("createAt").asText();
-        ResponseEntity<String> update = put("/clientes/2",
+        ResponseEntity<String> update = put("/clientes/" + createdClientId,
                 """
-                {"nombre":"Ada","apellido":"Lovelace","email":"ada@analytical.example",
+                {"nombre":"Ada","apellido":"Lovelace","email":"ada.updated@example.com",
                  "foto":"ada.jpg","region":{"id":3}}
                 """);
         assertEquals(201, update.getStatusCode().value());
@@ -173,7 +213,7 @@ class ClienteApiIntegrationTests {
 
         ResponseEntity<String> duplicateEmail = put("/clientes/1",
                 """
-                {"nombre":"Linus","apellido":"Torvalds","email":"ada@analytical.example",
+                {"nombre":"Linus","apellido":"Torvalds","email":"ada.updated@example.com",
                  "foto":"linus.jpg","region":{"id":1}}
                 """);
         assertEquals(409, duplicateEmail.getStatusCode().value());
@@ -201,11 +241,11 @@ class ClienteApiIntegrationTests {
     @Test
     @Order(12)
     void deletingExistingClientReturns204Then404() throws Exception {
-        ResponseEntity<String> deleted = delete("/clientes/1");
+        ResponseEntity<String> deleted = delete("/clientes/" + createdClientId);
         assertEquals(204, deleted.getStatusCode().value());
         assertTrue(deleted.getBody() == null || deleted.getBody().isEmpty());
 
-        ResponseEntity<String> missing = get("/clientes/1");
+        ResponseEntity<String> missing = get("/clientes/" + createdClientId);
         assertEquals(404, missing.getStatusCode().value());
         assertEquals(404, json(missing.getBody()).path("status").asInt());
     }

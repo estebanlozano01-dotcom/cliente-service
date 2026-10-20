@@ -30,3 +30,15 @@ Después ejecuta:
 ## Endpoints
 
 La API escucha en el puerto 8080 y Actuator expone `/actuator/health` en el puerto 8081.
+
+## Pruebas
+
+Ejecuta la suite automatizada (sin Docker ni una base de datos externa):
+
+```powershell
+.\mvnw.cmd test
+```
+
+Las pruebas unitarias y los slices de Spring usan mocks o H2; la prueba E2E también
+usa H2 en modo PostgreSQL para que se pueda ejecutar en entornos sin Docker. JaCoCo
+genera el reporte en `target/site/jacoco/index.html`.
